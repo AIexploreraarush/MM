@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Motion detector</title>
+    
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Infinite Motion Symphony</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Avenir', sans-serif; }
+        canvas { display: block; }
+        #overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; color: white; z-index: 10;
+        }
+        button {
+            padding: 20px 50px; font-size: 22px; cursor: pointer;
+            background: #ffffff; border: none; color: #000; border-radius: 5px;
+            font-weight: bold; letter-spacing: 1px;
+        }
+        p { margin-top: 15px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <button id="startBtn">START EXPERIENCE</button>
+        <p>Shake to hear music & see light</p>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let balls = [];
+        let audioCtx, mainGain, oscillators = [];
+        let isShaking = false;
+        let shakeTimeout;
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // --- Infinite Audio Synth ---
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            mainGain = audioCtx.createGain();
+            mainGain.gain.setValueAtTime(0, audioCtx.currentTime); // Start silent
+            mainGain.connect(audioCtx.destination);
+
+            // Create a "Forever Chord" using 3 oscillators at different frequencies
+            const frequencies = [130.81, 164.81, 196.00]; // C Major Drone
+            frequencies.forEach(freq => {
+                const osc = audioCtx.createOscillator();
+                const oscGain = audioCtx.createGain();
+                
+                osc.type = 'triangle'; // Smooth, relaxing tone
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                // Add a slight "breathing" vibrato to make it feel alive
+                const lfo = audioCtx.createOscillator();
+                const lfoGain = audioCtx.createGain();
+                lfo.frequency.value = 0.5; // slow pulse
+                lfoGain.gain.value = 2;
+                lfo.connect(lfoGain);
+                lfoGain.connect(osc.frequency);
+                lfo.start();
+
+                oscGain.gain.value = 0.2;
+                osc.connect(oscGain);
+                oscGain.connect(mainGain);
+                osc.start();
+            });
+        }
+
+        function toggleMusic(active) {
+            if (!mainGain) return;
+            const now = audioCtx.currentTime;
+            // Smooth fade in/out to avoid "popping" sounds
+            mainGain.gain.setTargetAtTime(active ? 0.5 : 0, now, 0.2);
+        }
+
+        // --- Visuals ---
+        class Ball {
+            constructor() {
+                this.radius = Math.random() * 10 + 5;
+                this.x = Math.random() * canvas.width;
+                this.y = -20;
+                this.color = `hsl(${Math.random() * 360}, 80%, 70%)`;
+                this.dy = Math.random() * 4 + 2;
+            }
+            update() {
+                this.y += this.dy;
+                this.draw();
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (isShaking && Math.random() > 0.8) {
+                for(let i=0; i<5; i++) balls.push(new Ball());
+            }
+
+            balls.forEach((ball, index) => {
+                ball.update();
+                if (ball.y > canvas.height + 20) balls.splice(index, 1);
+            });
+            requestAnimationFrame(animate);
+        }
+
+        // --- Motion Logic ---
+        function handleMotion(event) {
+            const acc = event.accelerationIncludingGravity;
+            const threshold = 20;
+            const movement = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
+
+            if (movement > threshold) {
+                if (!isShaking) {
+                    isShaking = true;
+                    toggleMusic(true);
+                }
+                
+                // Reset the "stop" timer every time movement is detected
+                clearTimeout(shakeTimeout);
+                shakeTimeout = setTimeout(() => {
+                    isShaking = false;
+                    toggleMusic(false);
+                }, 400); // Stop music 400ms after shaking stops
+            }
+        }
+
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            initAudio();
+            
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                const res = await DeviceMotionEvent.requestPermission();
+                if (res === 'granted') window.addEventListener('devicemotion', handleMotion);
+            } else {
+                window.addEventListener('devicemotion', handleMotion);
+            }
+            
+            document.getElementById('overlay').style.display = 'none';
+            animate();
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
+    
+  </body>
+  
+</html>
